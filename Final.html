@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stat-Ease Analyst: Statistical Test Selector</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load MathJax to render LaTeX math symbols in results -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    
+    <!-- 1. CONFIGURE MATHJAX -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        },
+        svg: {
+          fontCache: 'global'
+        }
+      };
+    </script>
+    
+    <!-- 2. Load MathJax -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <!-- 3. Load jStat Statistical Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+    
+    <style>
+        /* Custom styles */
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #6366f1;
+            --background: #f8fafc;
+            --danger: #ef4444;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+        }
+        .section-card {
+            /* Tailwind classes are dynamically controlled by JS for colors */
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.5s ease; /* Smooth color transition */
+        }
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .btn-primary:hover {
+            background-color: var(--primary-light);
+        }
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: #334155;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+        }
+        
+        /* Wizard Button Styles */
+        .wizard-btn {
+            display: block;
+            width: 100%;
+            padding: 1.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-align: left;
+            background-color: #f1f5f9;
+            border-radius: 0.75rem;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            color: #1e293b;
+        }
+        .wizard-btn:hover {
+            border-color: var(--primary);
+            background-color: #eef2ff;
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        /* Enforce current selected color for visual continuity */
+        .wizard-btn.selected-path {
+            border-color: var(--primary);
+            background-color: var(--primary-light); 
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .wizard-btn span {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #475569;
+            display: block;
+            margin-top: 0.25rem;
+        }
+
+        .wizard-btn.selected-path span {
+            color: #fff; /* White text for better contrast on colored selection */
+        }
+
+
+        .input-group label {
+            font-weight: 500;
+            color: #334155;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        .input-group input, .input-group textarea, .input-group select {
+            border: 1px solid #cbd5e1;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus, .input-group textarea:focus, .input-group select:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        /* Style for the SVG graph container */
+        .distribution-graph {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.5rem;
+        }
+        /* Ensure MathJax elements align well */
+        mjx-container {
+            display: inline-block !important;
+            margin: 0;
+            padding: 0;
+            vertical-align: middle;
+        }
+        .text-xl mjx-container { /* Style MathJax larger for the Test Statistic box */
+            font-size: 1.25rem !important; 
+        }
+        .test-panel {
+             display: none; /* Hide all test panels by default */
+        }
+        .test-panel.active {
+             display: block; /* Show the active one */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <header class="text-center mb-10">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-2">Stat-Ease Analyst</h1>
+        <p class="text-xl text-indigo-600">Statistical Test Selector</p>
+    </header>
+
+    <main class="max-w-4xl mx-auto">
+
+        <!-- WIZARD CONTAINER - Initial color is bg-white defined in JS -->
+        <div id="wizard-container" class="section-card bg-white">
+            
+            <!-- Step 1: 1-Sample vs 2-Sample -->
+            <div id="step-1" class="wizard-step">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Start Here: What are you comparing?</h2>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showStep(this, 'step-2-one-sample', 'bg-indigo-50')">
+                        Sample vs. Given/Known Value
+                        <span>e.g., Is the average height of my class (my sample) different from the known national average (a given value)?</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showStep(this, 'step-2-two-sample', 'bg-indigo-50')">
+                        Comparing Two Groups
+                        <span>e.g., Does Group A (sample 1) have a different average height than Group B (sample 2)?</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- === ONE-SAMPLE WIZARD PATH === -->
+            
+            <!-- Step 2 (One Sample): Data Type -->
+            <div id="step-2-one-sample" class="wizard-step hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">One-Sample Test: What kind of data?</h2>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showStep(this, 'step-3-numeric', 'bg-green-50')">
+                        Quantitative (Mean)
+                        <span>e.g., Heights, weights, test scores, temperature. (You want to test a mean, $\mu$)</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showTest('test-one-sample-proportion')">
+                        Qualitative (Proportion)
+                        <span>e.g., Pass/Fail, Yes/No, Red/Green. (You want to test a proportion, $p$)</span>
+                    </button>
+                </div>
+                <button class="btn-secondary mt-6" onclick="showStep(null, 'step-1', 'bg-white')">&larr; Back</button>
+            </div>
+
+            <!-- Step 3 (One Sample, Numeric): Normality -->
+            <div id="step-3-numeric" class="wizard-step hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">One-Sample Quantitative: Is your data approximately normal?</h2>
+                <p class="text-sm text-gray-500 mb-4">(If $n \ge 30$, you can usually assume normality by the Central Limit Theorem. If $n < 30$, your data should look "bell-shaped".)</p>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showStep(this, 'step-4-numeric-normal', 'bg-yellow-50')">
+                        Yes (or $n \ge 30$)
+                        <span>Use a parametric test (Z-test or t-test).</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showTest('test-sign-test')">
+                        No (or $n < 30$ and data is skewed)
+                        <span>Use a non-parametric test (Sign Test).</span>
+                    </button>
+                </div>
+                <button class="btn-secondary mt-6" onclick="showStep(null, 'step-2-one-sample', 'bg-indigo-50')">&larr; Back</button>
+            </div>
+
+            <!-- Step 4 (One Sample, Numeric, Normal): Pop SD Known? -->
+            <div id="step-4-numeric-normal" class="wizard-step hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">One-Sample Quantitative (Normal): Is the population standard deviation ($\sigma$) known?</h2>
+                <p class="text-sm text-gray-500 mb-4">(This is rare. You almost always use the *sample* standard deviation, $s$.)</p>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showTest('test-one-sample-z')">
+                        Yes, I know the true population $\sigma$
+                        <span>(e.g., from a standardized test manual) &rarr; One-Sample Z-Test</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showTest('test-one-sample-t')">
+                        No, I will use the sample's $\sigma$ (called $s$)
+                        <span>(This is the most common case) &rarr; One-Sample t-Test</span>
+                    </button>
+                </div>
+                <button class="btn-secondary mt-6" onclick="showStep(null, 'step-3-numeric', 'bg-green-50')">&larr; Back</button>
+            </div>
+
+            <!-- === TWO-SAMPLE WIZARD PATH === -->
+
+            <!-- Step 2 (Two Sample): Independent or Paired? -->
+            <div id="step-2-two-sample" class="wizard-step hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Two-Sample Test: Are the groups independent or paired?</h2>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showStep(this, 'step-3-independent', 'bg-green-50')">
+                        Independent
+                        <span>Two separate groups (e.g., Men vs. Women, Control Group vs. Treatment Group). Sample sizes can be different.</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showStep(this, 'step-3-paired', 'bg-green-50')">
+                        Paired
+                        <span>One group measured twice (e.g., Before vs. After) or matched pairs (e.g., Husbands vs. Wives). Sample sizes MUST be equal.</span>
+                    </button>
+                </div>
+                <button class="btn-secondary mt-6" onclick="showStep(null, 'step-1', 'bg-white')">&larr; Back</button>
+            </div>
+
+            <!-- Step 3 (Two Sample, Independent): Data Type -->
+            <div id="step-3-independent" class="wizard-step hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Two Independent Samples: What kind of data?</h2>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showStep(this, 'step-4-independent-numeric', 'bg-yellow-50')">
+                        Quantitative (Mean)
+                        <span>Comparing the means of two groups (e.g., $\mu_1$ vs $\mu_2$).</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showTest('test-two-sample-proportion')">
+                        Qualitative (Proportion)
+                        <span>Comparing proportions of two groups (e.g., $p_1$ vs $p_2$).</span>
+                    </button>
+                </div>
+                <button class="btn-secondary mt-6" onclick="showStep(null, 'step-2-two-sample', 'bg-indigo-50')">&larr; Back</button>
+            </div>
+
+            <!-- Step 4 (Two Sample, Independent, Numeric): Normality -->
+            <div id="step-4-independent-numeric" class="wizard-step hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Two Independent Samples (Quantitative): Is data approximately normal in both groups?</h2>
+                <p class="text-sm text-gray-500 mb-4">(If $n_1 \ge 30$ and $n_2 \ge 30$, you can usually assume normality.)</p>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showStep(this, 'step-5-independent-normal', 'bg-purple-50')">
+                        Yes (or $n_1, n_2 \ge 30$)
+                        <span>Use a parametric test (Z-test or t-test).</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showTest('test-mann-whitney')">
+                        No (or $n < 30$ and data is skewed)
+                        <span>Use a non-parametric test (Mann-Whitney U Test).</span>
+                    </button>
+                </div>
+                <button class="btn-secondary mt-6" onclick="showStep(null, 'step-3-independent', 'bg-green-50')">&larr; Back</button>
+            </div>
+
+            <!-- Step 5 (Two Sample, Independent, Numeric, Normal): Pop SD Known? -->
+            <div id="step-5-independent-normal" class="wizard-step hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Two Independent Samples (Normal, Quantitative): Are the population $\sigma_1$ and $\sigma_2$ known?</h2>
+                <p class="text-sm text-gray-500 mb-4">(Again, this is rare. You almost always use the sample $s_1$ and $s_2$.)</p>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showTest('test-two-sample-z')">
+                        Yes, I know the true population $\sigma_1$ and $\sigma_2$
+                        <span>&rarr; Two-Sample Z-Test</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showTest('test-two-sample-t')">
+                        No, I will use the sample $s_1$ and $s_2$
+                        <span>(This is the most common case) &rarr; Independent Two-Sample t-Test</span>
+                    </button>
+                </div>
+                <button class="btn-secondary mt-6" onclick="showStep(null, 'step-4-independent-numeric', 'bg-yellow-50')">&larr; Back</button>
+            </div>
+
+            <!-- Step 3 (Two Sample, Paired): Normality -->
+            <div id="step-3-paired" class="wizard-step hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Two Paired Samples: Are the *differences* approximately normal?</h2>
+                <p class="text-sm text-gray-500 mb-4">(Find the difference for each pair. If $n_{\text{pairs}} \ge 30$ or the differences look bell-shaped, answer "Yes".)</p>
+                <div class="space-y-4">
+                    <button class="wizard-btn" onclick="showTest('test-paired-t')">
+                        Yes (or $n_{\text{pairs}} \ge 30$)
+                        <span>Use a parametric test. &rarr; Paired Sample t-Test</span>
+                    </button>
+                    <button class="wizard-btn" onclick="showTest('test-wilcoxon-paired')">
+                        No (or $n_{\text{pairs}} < 30$ and differences are skewed)
+                        <span>Use a non-parametric test. &rarr; Wilcoxon Signed-Rank Test (Paired)</span>
+                    </button>
+                </div>
+                <button class="btn-secondary mt-6" onclick="showStep(null, 'step-2-two-sample', 'bg-indigo-50')">&larr; Back</button>
+            </div>
+
+
+        </div> <!-- End Wizard Container -->
+
+
+        <!-- TEST CALCULATOR CONTAINER -->
+        <div id="test-container" class="hidden mt-8">
+            <button class="btn-secondary mb-4" onclick="resetWizard()">&larr; Back to Test Selector</button>
+
+            <!-- All test panels go here -->
+
+            <!-- === ONE-SAMPLE t-TEST (From old file, improved) === -->
+            <div id="test-one-sample-t" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-2 text-gray-800">One-Sample t-Test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 1 Sample, Quantitative Data, Normal, Population $\sigma$ UNKNOWN.</p>
+                
+                <div class="input-group mb-4">
+                    <label for="t1-data">Sample Data (X):</label>
+                    <textarea id="t1-data" rows="3" placeholder="e.g., 12.1, 13.5, 11.8, 14.0, 12.9" class="resize-none"></textarea>
+                </div>
+                <div class="input-group mb-4">
+                    <label for="t1-hypothesized-mean">Hypothesized Population Mean (&mu;₀):</label>
+                    <input type="number" id="t1-hypothesized-mean" value="12.0" step="0.1">
+                </div>
+                
+                <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="t1-h0-symbol">Null Hypothesis ($H_0$): &mu;</label>
+                        <select id="t1-h0-symbol" class="h-10"></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="t1-ha-symbol">Alternative Hypothesis ($H_1$): &mu;</label>
+                        <select id="t1-ha-symbol" class="h-10" onchange="updateH0Symbols('t1')">
+                            <option value="!=" selected>H₁: &mu; &ne; &mu;₀ (Two-Tailed)</option>
+                            <option value="<">H₁: &mu; < &mu;₀ (Left-Tailed)</option>
+                            <option value=">">H₁: &mu; > &mu;₀ (Right-Tailed)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="calculateOneSampleT()" class="btn-primary w-full">Calculate One-Sample t-test</button>
+                <div id="one-sample-t-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+
+            <!-- === ONE-SAMPLE Z-TEST (New) === -->
+            <div id="test-one-sample-z" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-2 text-gray-800">One-Sample Z-Test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 1 Sample, Quantitative Data, Normal, Population $\sigma$ KNOWN.</p>
+                
+                <div class="input-group mb-4">
+                    <label for="z1-data">Sample Data (X):</label>
+                    <textarea id="z1-data" rows="3" placeholder="e.g., 12.1, 13.5, 11.8, 14.0, 12.9" class="resize-none"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="input-group">
+                        <label for="z1-hypothesized-mean">Hypothesized Mean (&mu;₀):</label>
+                        <input type="number" id="z1-hypothesized-mean" value="12.0" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="z1-pop-sd">Population SD (&sigma;):</label>
+                        <input type="number" id="z1-pop-sd" value="1.0" step="0.01">
+                    </div>
+                </div>
+                
+                <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="z1-h0-symbol">Null Hypothesis ($H_0$): &mu;</label>
+                        <select id="z1-h0-symbol" class="h-10"></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="z1-ha-symbol">Alternative Hypothesis ($H_1$): &mu;</label>
+                        <select id="z1-ha-symbol" class="h-10" onchange="updateH0Symbols('z1')">
+                            <option value="!=" selected>H₁: &mu; &ne; &mu;₀ (Two-Tailed)</option>
+                            <option value="<">H₁: &mu; < &mu;₀ (Left-Tailed)</option>
+                            <option value=">">H₁: &mu; > &mu;₀ (Right-Tailed)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="calculateOneSampleZ()" class="btn-primary w-full">Calculate One-Sample Z-test</button>
+                <div id="one-sample-z-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+
+            <!-- === ONE-SAMPLE PROPORTION TEST (New) === -->
+            <div id="test-one-sample-proportion" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-2 text-gray-800">One-Sample Proportion Z-Test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 1 Sample, Qualitative Data.</p>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="input-group">
+                        <label for="p1-successes">Number of Successes ($x$):</label>
+                        <input type="number" id="p1-successes" value="60" step="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="p1-n">Sample Size ($n$):</label>
+                        <input type="number" id="p1-n" value="100" step="1">
+                    </div>
+                </div>
+                <div class="input-group mb-4">
+                    <label for="p1-hypothesized-p">Hypothesized Proportion ($p_0$):</label>
+                    <input type="number" id="p1-hypothesized-p" value="0.5" step="0.01" min="0" max="1">
+                </div>
+                
+                <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="p1-h0-symbol">Null Hypothesis ($H_0$): $p$</label>
+                        <select id="p1-h0-symbol" class="h-10"></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="p1-ha-symbol">Alternative Hypothesis ($H_1$): $p$</label>
+                        <select id="p1-ha-symbol" class="h-10" onchange="updateH0Symbols('p1', 'p₀')">
+                            <option value="!=" selected>H₁: $p \ne p_0$ (Two-Tailed)</option>
+                            <option value="<">H₁: $p < p_0$ (Left-Tailed)</option>
+                            <option value=">">H₁: $p > p_0$ (Right-Tailed)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="calculateOneSampleProportion()" class="btn-primary w-full">Calculate One-Sample Proportion Test</button>
+                <div id="one-sample-proportion-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+            
+            <!-- === SIGN TEST (New) === -->
+            <div id="test-sign-test" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-2 text-gray-800">One-Sample Sign Test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 1 Sample, Quantitative Data, NOT Normal. This test checks the *median*.</p>
+                
+                <div class="input-group mb-4">
+                    <label for="sign-data">Sample Data (X):</label>
+                    <textarea id="sign-data" rows="3" placeholder="e.g., 5, 8, 3, 10, 4, 9" class="resize-none"></textarea>
+                </div>
+                <div class="input-group mb-4">
+                    <label for="sign-hypothesized-median">Hypothesized Population Median:</label>
+                    <input type="number" id="sign-hypothesized-median" value="5" step="0.1">
+                </div>
+                
+                 <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="sign-h0-symbol">Null Hypothesis ($H_0$)</label>
+                        <select id="sign-h0-symbol" class="h-10 bg-gray-100" readonly disabled></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="sign-ha-symbol">Alternative Hypothesis ($H_1$)</label>
+                        <select id="sign-ha-symbol" class="h-10" onchange="updateNonParamH0('sign', 'Median', 'Median₀')">
+                            <option value="!=" selected>H₁: Median $\ne$ Median₀</option>
+                            <option value="<">H₁: Median $<$ Median₀</option>
+                            <option value=">">H₁: Median $>$ Median₀</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="calculateSignTest()" class="btn-primary w-full">Calculate Sign Test</button>
+                <div id="sign-test-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+
+            <!-- === TWO-SAMPLE t-TEST (From old file, improved) === -->
+            <div id="test-two-sample-t" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Independent Two-Sample t-test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 2 Independent Samples, Quantitative Data, Normal, Population $\sigma$s UNKNOWN.</p>
+                
+                <div class="input-group mb-4">
+                    <label for="t2-sample1-data">Sample 1 Data ($X_1$):</label>
+                    <textarea id="t2-sample1-data" rows="3" placeholder="e.g., 5, 6, 7, 8, 9" class="resize-none"></textarea>
+                </div>
+                <div class="input-group mb-6">
+                    <label for="t2-sample2-data">Sample 2 Data ($X_2$):</label>
+                    <textarea id="t2-sample2-data" rows="3" placeholder="e.g., 7, 8, 9, 10, 11" class="resize-none"></textarea>
+                </div>
+                
+                <!-- Simplified Hypotheses for 2-Sample -->
+                 <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="t2-h0-symbol">Null Hypothesis ($H_0$): $\mu_1$</label>
+                        <select id="t2-h0-symbol" class="h-10"></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="t2-ha-symbol">Alternative Hypothesis ($H_1$): $\mu_1$</label>
+                        <select id="t2-ha-symbol" class="h-10" onchange="updateH0Symbols('t2', 'μ₂')">
+                            <option value="!=" selected>H₁: $\mu_1 \ne \mu_2$ (Two-Tailed)</option>
+                            <option value="<">H₁: $\mu_1 < \mu_2$ (Left-Tailed)</option>
+                            <option value=">">H₁: $\mu_1 > \mu_2$ (Right-Tailed)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="calculateTwoSampleT()" class="btn-primary w-full">Calculate Two-Sample t-test</button>
+                <div id="two-sample-t-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+            
+            <!-- === TWO-SAMPLE Z-TEST (New) === -->
+            <div id="test-two-sample-z" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Independent Two-Sample Z-test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 2 Independent Samples, Quantitative Data, Normal, Population $\sigma$s KNOWN.</p>
+                
+                <div class="input-group mb-4">
+                    <label for="z2-sample1-data">Sample 1 Data ($X_1$):</label>
+                    <textarea id="z2-sample1-data" rows="3" placeholder="e.g., 5, 6, 7, 8, 9" class="resize-none"></textarea>
+                </div>
+                <div class="input-group mb-4">
+                    <label for="z2-sample2-data">Sample 2 Data ($X_2$):</label>
+                    <textarea id="z2-sample2-data" rows="3" placeholder="e.g., 7, 8, 9, 10, 11" class="resize-none"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="input-group">
+                        <label for="z2-pop-sd1">Population SD 1 ($\sigma_1$):</label>
+                        <input type="number" id="z2-pop-sd1" value="1.0" step="0.01">
+                    </div>
+                     <div class="input-group">
+                        <label for="z2-pop-sd2">Population SD 2 ($\sigma_2$):</label>
+                        <input type="number" id="z2-pop-sd2" value="1.0" step="0.01">
+                    </div>
+                </div>
+
+                 <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="z2-h0-symbol">Null Hypothesis ($H_0$): $\mu_1$</label>
+                        <select id="z2-h0-symbol" class="h-10"></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="z2-ha-symbol">Alternative Hypothesis ($H_1$): $\mu_1$</label>
+                        <select id="z2-ha-symbol" class="h-10" onchange="updateH0Symbols('z2', 'μ₂')">
+                            <option value="!=" selected>H₁: $\mu_1 \ne \mu_2$ (Two-Tailed)</option>
+                            <option value="<">H₁: $\mu_1 < \mu_2$ (Left-Tailed)</option>
+                            <option value=">">H₁: $\mu_1 > \mu_2$ (Right-Tailed)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="calculateTwoSampleZ()" class="btn-primary w-full">Calculate Two-Sample Z-test</button>
+                <div id="two-sample-z-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+            
+            <!-- === PAIRED t-TEST (New) === -->
+            <div id="test-paired-t" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Paired Sample t-Test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 2 Paired Samples, Quantitative Data, Normal Differences. (Data rows must match up).</p>
+                
+                <div class="input-group mb-4">
+                    <label for="tp-sample1-data">Sample 1 Data (e.g., Before):</label>
+                    <textarea id="tp-sample1-data" rows="3" placeholder="e.g., 10, 12, 15, 11" class="resize-none"></textarea>
+                </div>
+                <div class="input-group mb-6">
+                    <label for="tp-sample2-data">Sample 2 Data (e.g., After):</label>
+                    <textarea id="tp-sample2-data" rows="3" placeholder="e.g., 12, 13, 15, 14" class="resize-none"></textarea>
+                </div>
+                
+                 <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="tp-h0-symbol">Null Hypothesis ($H_0$): $\mu_{\text{diff}}$</label>
+                        <select id="tp-h0-symbol" class="h-10"></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="tp-ha-symbol">Alternative Hypothesis ($H_1$): $\mu_{\text{diff}}$</label>
+                        <select id="tp-ha-symbol" class="h-10" onchange="updateH0Symbols('tp', '0')">
+                            <option value="!=" selected>H₁: $\mu_{\text{diff}} \ne 0$ (Two-Tailed)</option>
+                            <option value="<">H₁: $\mu_{\text{diff}} < 0$ (Left-Tailed)</option>
+                            <option value=">">H₁: $\mu_{\text{diff}} > 0$ (Right-Tailed)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="calculatePairedT()" class="btn-primary w-full">Calculate Paired t-test</button>
+                <div id="paired-t-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+            
+            <!-- === TWO-SAMPLE PROPORTION TEST (New) === -->
+            <div id="test-two-sample-proportion" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-2 text-gray-800">Two-Sample Proportion Z-Test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 2 Independent Samples, Qualitative Data.</p>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="input-group p-3 bg-gray-50 rounded-lg">
+                        <label>Sample 1 ($X_1, n_1$):</label>
+                        <input type="number" id="p2-successes1" placeholder="Successes (x₁)" class="mb-2">
+                        <input type="number" id="p2-n1" placeholder="Sample Size (n₁)">
+                    </div>
+                     <div class="input-group p-3 bg-gray-50 rounded-lg">
+                        <label>Sample 2 ($X_2, n_2$):</label>
+                        <input type="number" id="p2-successes2" placeholder="Successes (x₂)" class="mb-2">
+                        <input type="number" id="p2-n2" placeholder="Sample Size (n₂)">
+                    </div>
+                </div>
+
+                 <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="p2-h0-symbol">Null Hypothesis ($H_0$): $p_1$</label>
+                        <select id="p2-h0-symbol" class="h-10"></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="p2-ha-symbol">Alternative Hypothesis ($H_1$): $p_1$</label>
+                        <select id="p2-ha-symbol" class="h-10" onchange="updateH0Symbols('p2', 'p₂')">
+                            <option value="!=" selected>H₁: $p_1 \ne p_2$ (Two-Tailed)</option>
+                            <option value="<">H₁: $p_1 < p_2$ (Left-Tailed)</option>
+                            <option value=">">H₁: $p_1 > p_2$ (Right-Tailed)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="calculateTwoSampleProportion()" class="btn-primary w-full">Calculate Two-Sample Proportion Test</button>
+                <div id="two-sample-proportion-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+            
+             <!-- === MANN-WHITNEY U TEST (New) === -->
+            <div id="test-mann-whitney" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Mann-Whitney U Test</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 2 Independent Samples, Quantitative Data, NOT Normal. (Non-parametric)</p>
+                
+                <div class="input-group mb-4">
+                    <label for="mw-sample1-data">Sample 1 Data ($X_1$):</label>
+                    <textarea id="mw-sample1-data" rows="3" placeholder="e.g., 5, 6, 7, 8, 9" class="resize-none"></textarea>
+                </div>
+                <div class="input-group mb-6">
+                    <label for="mw-sample2-data">Sample 2 Data ($X_2$):</label>
+                    <textarea id="mw-sample2-data" rows="3" placeholder="e.g., 7, 8, 9, 10, 11" class="resize-none"></textarea>
+                </div>
+                
+                 <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="mw-h0-symbol">Null Hypothesis ($H_0$)</label>
+                        <select id="mw-h0-symbol" class="h-10 bg-gray-100" readonly disabled></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="mw-ha-symbol">Alternative Hypothesis ($H_1$)</label>
+                        <select id="mw-ha-symbol" class="h-10" onchange="updateNonParamH0('mw', 'Dist_1', 'Dist_2')">
+                            <option value="!=" selected>H₁: Distributions are different</option>
+                            <option value="<">H₁: Distribution 1 < Distribution 2</option>
+                            <option value=">">H₁: Distribution 1 > Distribution 2</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="calculateMannWhitney()" class="btn-primary w-full">Calculate Mann-Whitney U Test</button>
+                <div id="mann-whitney-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+            
+            <!-- === WILCOXON PAIRED TEST (New) === -->
+            <div id="test-wilcoxon-paired" class="test-panel section-card bg-blue-100">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Wilcoxon Signed-Rank Test (Paired)</h2>
+                <p class="text-sm text-gray-500 mb-4">You selected: 2 Paired Samples, Quantitative Data, Differences NOT Normal. (Non-parametric)</p>
+                
+                <div class="input-group mb-4">
+                    <label for="wp-sample1-data">Sample 1 Data (e.g., Before):</label>
+                    <textarea id="wp-sample1-data" rows="3" placeholder="e.g., 10, 12, 15, 11" class="resize-none"></textarea>
+                </div>
+                <div class="input-group mb-6">
+                    <label for="wp-sample2-data">Sample 2 Data (e.g., After):</label>
+                    <textarea id="wp-sample2-data" rows="3" placeholder="e.g., 12, 13, 15, 14" class="resize-none"></textarea>
+                </div>
+                
+                 <div class="flex space-x-4 mb-6">
+                    <div class="input-group flex-1">
+                        <label for="wp-h0-symbol">Null Hypothesis ($H_0$)</label>
+                        <select id="wp-h0-symbol" class="h-10 bg-gray-100" readonly disabled></select>
+                    </div>
+                    <div class="input-group flex-1">
+                        <label for="wp-ha-symbol">Alternative Hypothesis ($H_1$)</label>
+                        <select id="wp-ha-symbol" class="h-10" onchange="updateNonParamH0('wp', 'Dist_1', 'Dist_2')">
+                            <option value="!=" selected>H₁: Distributions are different</option>
+                            <option value="<">H₁: Distribution 1 < Distribution 2</option>
+                            <option value=">">H₁: Distribution 1 > Distribution 2</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="calculateWilcoxonPaired()" class="btn-primary w-full">Calculate Wilcoxon Signed-Rank Test</button>
+                <div id="wilcoxon-paired-results" class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm hidden"></div>
+            </div>
+
+        </div> <!-- End Test Calculator Container -->
+
+    </main>
+
+    <script>
+        // --- WIZARD NAVIGATION ---
+        const wizardContainer = document.getElementById('wizard-container');
+        const testContainer = document.getElementById('test-container');
+        
+        // Define color classes to exclude when cleaning up colors
+        const colorClasses = [
+            'bg-white', 'bg-indigo-50', 'bg-green-50', 'bg-yellow-50', 'bg-purple-50', // Wizard steps
+            'bg-blue-100' // Test step
+        ];
+
+        // Helper to remove all known background color classes
+        function removeBackgroundColors(elementId) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            colorClasses.forEach(cls => element.classList.remove(cls));
+        }
+        
+        // Helper to update the main container background color
+        function updateContainerColor(containerId, colorClass) {
+            removeBackgroundColors(containerId);
+            if (colorClass) {
+                document.getElementById(containerId).classList.add(colorClass);
+            }
+        }
+
+        // State to track last selected button's ID for highlighting
+        let lastSelectedButton = null;
+
+        function showStep(clickedButton, stepId, colorClass) {
+            // 1. Highlight the current choice (optional: remove highlight from previous button)
+            if (lastSelectedButton) {
+                lastSelectedButton.classList.remove('selected-path');
+            }
+            if (clickedButton) {
+                clickedButton.classList.add('selected-path');
+                lastSelectedButton = clickedButton;
+            }
+            
+            // 2. Handle Navigation
+            // Hide all steps
+            wizardContainer.querySelectorAll('.wizard-step').forEach(step => {
+                step.classList.add('hidden');
+            });
+            // Show the target step
+            document.getElementById(stepId).classList.remove('hidden');
+            
+            // 3. Apply new color to the wizard container
+            updateContainerColor('wizard-container', colorClass);
+        }
+
+        function showTest(testId) {
+            // Clear button highlight
+            if (lastSelectedButton) {
+                lastSelectedButton.classList.remove('selected-path');
+                lastSelectedButton = null;
+            }
+
+            // Hide wizard, show test container
+            wizardContainer.classList.add('hidden');
+            testContainer.classList.remove('hidden');
+
+            // Hide all test panels
+            testContainer.querySelectorAll('.test-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            
+            // Show the target test panel
+            const targetPanel = document.getElementById(testId);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+            
+            // Apply test container color (a final, different pastel shade)
+            updateContainerColor('test-container', 'bg-blue-100'); 
+
+            // Initialize hypothesis dropdowns for the shown test
+            if (testId === 'test-one-sample-t') updateH0Symbols('t1');
+            if (testId === 'test-one-sample-z') updateH0Symbols('z1');
+            if (testId === 'test-one-sample-proportion') updateH0Symbols('p1', 'p₀');
+            if (testId === 'test-two-sample-t') updateH0Symbols('t2', 'μ₂');
+            if (testId === 'test-two-sample-z') updateH0Symbols('z2', 'μ₂');
+            if (testId === 'test-paired-t') updateH0Symbols('tp', '0');
+            if (testId === 'test-two-sample-proportion') updateH0Symbols('p2', 'p₂');
+            if (testId === 'test-sign-test') updateNonParamH0('sign', 'Median', 'Median₀');
+            if (testId === 'test-mann-whitney') updateNonParamH0('mw', 'Dist_1', 'Dist_2');
+            if (testId === 'test-wilcoxon-paired') updateNonParamH0('wp', 'Dist_1', 'Dist_2');
+            
+            // Scroll to top
+             window.scrollTo(0, 0);
+        }
+
+        function resetWizard() {
+            // Clear button highlight
+            if (lastSelectedButton) {
+                lastSelectedButton.classList.remove('selected-path');
+                lastSelectedButton = null;
+            }
+            
+            // Show wizard, hide test container
+            testContainer.classList.add('hidden');
+            wizardContainer.classList.remove('hidden');
+            
+            // Go back to step 1 and reset color
+            updateContainerColor('wizard-container', 'bg-white');
+            showStep(null, 'step-1', 'bg-white');
+        }
+
+        // --- UTILITY FUNCTIONS ---
+        const parseData = (input) => {
+            return input.split(/[\s,]+/)
+                        .filter(v => v.trim() !== '')
+                        .map(Number)
+                        .filter(v => !isNaN(v));
+        };
+
+        const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+        const mean = (arr) => sum(arr) / arr.length;
+
+        const variance = (arr, sample = true) => {
+            if (arr.length <= (sample ? 1 : 0)) return 0;
+            const avg = mean(arr);
+            const sqDiffs = arr.map(x => (x - avg) ** 2);
+            return sum(sqDiffs) / (arr.length - (sample ? 1 : 0));
+        };
+
+        const stdev = (arr, sample = true) => Math.sqrt(variance(arr, sample));
+
+        const displayError = (id, message) => {
+            const resultsDiv = document.getElementById(id);
+            if (!resultsDiv) { console.error("Invalid resultsDiv ID:", id); return; }
+            resultsDiv.innerHTML = `<p class="font-bold text-red-600">Error:</p><p class="text-red-500">${message}</p>`;
+            resultsDiv.classList.remove('hidden');
+            resultsDiv.classList.add('bg-red-100', 'border-red-300');
+            resultsDiv.classList.remove('bg-indigo-50', 'border-indigo-200');
+        };
+
+        const displayResult = (id, content) => {
+            const resultsDiv = document.getElementById(id);
+            if (!resultsDiv) { console.error("Invalid resultsDiv ID:", id); return; }
+            resultsDiv.innerHTML = content;
+            resultsDiv.classList.remove('hidden', 'bg-red-100', 'border-red-300');
+            resultsDiv.classList.add('bg-indigo-50', 'border-indigo-200');
+            
+            if (window.MathJax) {
+                MathJax.startup.promise.then(() => {
+                    MathJax.typesetPromise([resultsDiv]).catch((err) => console.log('MathJax Typeset Error:', err));
+                });
+            }
+        };
+        
+        // --- HYPOTHESIS UPDATE LOGIC ---
+        function updateH0Symbols(prefix, val = 'μ₀') {
+            const haSymbol = document.getElementById(`${prefix}-ha-symbol`).value;
+            const h0Select = document.getElementById(`${prefix}-h0-symbol`);
+            
+            h0Select.innerHTML = ''; 
+            let h0Symbol, h0Text;
+
+            // Use Unicode symbols (≥, ≤) for better display in the select dropdown
+            if (haSymbol === '!=') {
+                h0Symbol = '=';
+                h0Text = `H₀: ... = ${val}`;
+            } else if (haSymbol === '<') {
+                h0Symbol = '>=';
+                h0Text = `H₀: ... ≥ ${val}`; // Using Unicode ≥
+            } else if (haSymbol === '>') {
+                h0Symbol = '<=';
+                h0Text = `H₀: ... ≤ ${val}`; // Using Unicode ≤
+            }
+            
+            const option = document.createElement('option');
+            option.value = h0Symbol;
+            
+            // Find the <label> associated with the select element
+            const labelEl = document.querySelector(`label[for="${prefix}-h0-symbol"]`);
+            // Get its innerHTML (which contains the symbol, e.g., "&mu;" or "$p$")
+            const labelText = labelEl.innerHTML;
+            // Split by ': ' and take the second part (the parameter symbol)
+            const paramSymbol = labelText.split(': ')[1]; 
+            
+            // Replace the '...' placeholder with the extracted symbol
+            option.innerHTML = h0Text.replace('...', paramSymbol);
+
+            option.selected = true;
+            h0Select.appendChild(option);
+        }
+        
+        // New function for non-parametric H0
+        function updateNonParamH0(prefix, param1, param2) {
+            const haSymbol = document.getElementById(`${prefix}-ha-symbol`).value;
+            const h0Select = document.getElementById(`${prefix}-h0-symbol`);
+            
+            h0Select.innerHTML = '';
+            let h0TextDisplay;
+            let h0TextValue; // This stores the MathJax version for the final result rendering
+
+            // Determine the value (MathJax notation) and the display text (Unicode)
+            if (haSymbol === '!=') {
+                h0TextValue = `H₀: ${param1} = ${param2}`;
+                h0TextDisplay = h0TextValue;
+            } else if (haSymbol === '<') {
+                h0TextValue = `H₀: ${param1} \\ge ${param2}`; // MathJax
+                h0TextDisplay = `H₀: ${param1} ≥ ${param2}`; // Unicode display
+            } else if (haSymbol === '>') {
+                h0TextValue = `H₀: ${param1} \\le ${param2}`; // MathJax
+                h0TextDisplay = `H₀: ${param1} ≤ ${param2}`; // Unicode display
+            }
+            
+            const option = document.createElement('option');
+            option.value = h0TextValue; // Store MathJax for results rendering
+            option.innerHTML = h0TextDisplay; // Display Unicode for select visibility
+            option.selected = true;
+            h0Select.appendChild(option);
+        }
+
+        // --- STATISTICAL / SVG FUNCTIONS ---
+
+        // Get Critical T-Value (jStat)
+        function getTCritical(df, tailType) {
+            const alpha = 0.05;
+            if (df <= 0) return NaN;
+            if (tailType === '!=') return jStat.studentt.inv(1 - (alpha / 2), df);
+            return jStat.studentt.inv(1 - alpha, df);
+        }
+        
+        // Get Critical Z-Value (jStat)
+        function getZCritical(tailType) {
+            const alpha = 0.05;
+            if (tailType === '!=') return jStat.normal.inv(1 - (alpha / 2), 0, 1);
+            return jStat.normal.inv(1 - alpha, 0, 1);
+        }
+
+        // Draw T-Distribution (Accurate PDF)
+        function drawTDistribution(tStat, tCrit, tailType, df) {
+            const W = 300, H = 150, SCALE = 30, CENTER = W / 2, BASELINE = H * 0.9, FUDGE = 0.03;
+            const maxHeight = jStat.studentt.pdf(0, df);
+
+            const yCurve = (t) => {
+                const y_pdf = jStat.studentt.pdf(t, df);
+                let y_pixel = BASELINE - (y_pdf / maxHeight) * (BASELINE * 0.75);
+                return Math.max(y_pixel, H * 0.1);
+            };
+            
+            return drawDistribution(tStat, tCrit, tailType, "t", yCurve, "($\mu_0$)");
+        }
+        
+        // Draw Normal (Z) Distribution (Accurate PDF)
+        function drawNormalDistribution(zStat, zCrit, tailType) {
+            const W = 300, H = 150, SCALE = 30, CENTER = W / 2, BASELINE = H * 0.9, FUDGE = 0.03;
+            const maxHeight = jStat.normal.pdf(0, 0, 1); // Z-dist: mean=0, std=1
+
+            const yCurve = (z) => {
+                const y_pdf = jStat.normal.pdf(z, 0, 1);
+                let y_pixel = BASELINE - (y_pdf / maxHeight) * (BASELINE * 0.75);
+                return Math.max(y_pixel, H * 0.1);
+            };
+            
+            return drawDistribution(zStat, zCrit, tailType, "z", yCurve, "");
+        }
+        
+        // Generic Distribution Drawer (Used by T and Z)
+        function drawDistribution(stat, crit, tailType, statSymbol, yCurveFn, centerLabel = "") {
+            const W = 300, H = 150, SCALE = 30, CENTER = W / 2, BASELINE = H * 0.9, FUDGE = 0.03;
+            const tToX = (t) => CENTER + t * SCALE;
+            
+            let svgContent = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" class="mx-auto" style="overflow: visible;">
+                <line x1="0" y1="${BASELINE}" x2="${W}" y2="${BASELINE}" stroke="#6b7280" stroke-width="1.5"/>
+                <text x="${CENTER}" y="${H - 5}" font-size="12" fill="#6b7280" text-anchor="middle">0 ${centerLabel}</text>`;
+
+            const critAbs = Math.abs(crit);
+            
+            const drawAreaPath = (x1, x2, color) => {
+                let points = `M${x1},${BASELINE}`;
+                const t1 = (x1 - CENTER) / SCALE, t2 = (x2 - CENTER) / SCALE;
+                for (let t = t1; t <= t2; t += FUDGE) {
+                    points += ` L${tToX(t)},${yCurveFn(t)}`;
+                }
+                points += ` L${x2},${BASELINE} Z`;
+                return `<path d="${points}" fill="${color}" opacity="0.4"/>`;
+            };
+
+            // 1. Draw Rejection Zone(s)
+            if (tailType === '!=') {
+                const xCritLeft = tToX(-critAbs), xCritRight = tToX(critAbs);
+                svgContent += drawAreaPath(0, xCritLeft, 'var(--danger)');
+                svgContent += drawAreaPath(xCritRight, W, 'var(--danger)');
+                svgContent += `<text x="${xCritLeft}" y="${BASELINE + 15}" font-size="10" fill="var(--danger)" text-anchor="middle">-${critAbs.toFixed(3)}</text>
+                                <text x="${xCritRight}" y="${BASELINE + 15}" font-size="10" fill="var(--danger)" text-anchor="middle">${critAbs.toFixed(3)}</text>`;
+            } else if (tailType === '<') {
+                const xCrit = tToX(-critAbs);
+                svgContent += drawAreaPath(0, xCrit, 'var(--danger)');
+                svgContent += `<text x="${xCrit}" y="${BASELINE + 15}" font-size="10" fill="var(--danger)" text-anchor="middle">-${critAbs.toFixed(3)}</text>`;
+            } else if (tailType === '>') {
+                const xCrit = tToX(critAbs);
+                svgContent += drawAreaPath(xCrit, W, 'var(--danger)');
+                svgContent += `<text x="${xCrit}" y="${BASELINE + 15}" font-size="10" fill="var(--danger)" text-anchor="middle">${critAbs.toFixed(3)}</text>`;
+            }
+
+            // 2. Draw the Distribution Curve
+            let curvePath = '';
+            for (let x = 0; x <= W; x += 2) {
+                const t = (x - CENTER) / SCALE;
+                curvePath += (x === 0 ? 'M' : 'L') + `${x},${yCurveFn(t)}`;
+            }
+            svgContent += `<path d="${curvePath}" fill="none" stroke="var(--primary-light)" stroke-width="2"/>`;
+
+            // 3. Draw the Test Statistic marker
+            const xStat = tToX(stat);
+            svgContent += `<line x1="${xStat}" y1="${BASELINE}" x2="${xStat}" y2="${yCurveFn(stat)}" stroke="var(--primary)" stroke-width="3" stroke-linecap="round"/>
+                            <text x="${xStat}" y="${yCurveFn(stat) - 5}" font-size="12" fill="var(--primary)" text-anchor="middle" font-weight="bold">${statSymbol}=${stat.toFixed(3)}</text>`;
+            
+            svgContent += `</svg>`;
+            return svgContent;
+        }
+        
+        // Function to calculate Mann-Whitney U statistic and ranks
+        function calculateUStatistic(data1, data2) {
+            const n1 = data1.length;
+            const n2 = data2.length;
+            const combined = [];
+            
+            // Combine data and track original sample index
+            data1.forEach(value => combined.push({ value, sample: 1 }));
+            data2.forEach(value => combined.push({ value, sample: 2 }));
+
+            // Sort combined data
+            combined.sort((a, b) => a.value - b.value);
+
+            // Assign ranks, handling ties ( average rank)
+            let ranks1 = 0;
+            let ranks2 = 0;
+            
+            let i = 0;
+            while (i < combined.length) {
+                let j = i;
+                // Find end of ties
+                while (j < combined.length && combined[j].value === combined[i].value) {
+                    j++;
+                }
+                
+                // Calculate average rank for the tie group (ranks are 1-indexed)
+                const avgRank = (i + 1 + j) / 2;
+
+                // Assign rank to members of the tie group
+                for (let k = i; k < j; k++) {
+                    if (combined[k].sample === 1) {
+                        ranks1 += avgRank;
+                    } else {
+                        ranks2 += avgRank;
+                    }
+                }
+                i = j;
+            }
+
+            // Calculate U statistics
+            const R1 = ranks1;
+            const R2 = ranks2;
+            
+            const U1 = R1 - (n1 * (n1 + 1)) / 2;
+            const U2 = R2 - (n2 * (n2 + 1)) / 2;
+
+            // U is the minimum of U1 and U2
+            const U = Math.min(U1, U2);
+            
+            return { U, R1, R2, n1, n2 };
+        }
+
+        // --- TEST CALCULATOR FUNCTIONS ---
+
+        // 1. One-Sample t-Test
+        function calculateOneSampleT() {
+            const id = 'one-sample-t-results';
+            const data = parseData(document.getElementById('t1-data').value);
+            const mu0 = Number(document.getElementById('t1-hypothesized-mean').value);
+            const haSymbol = document.getElementById('t1-ha-symbol').value;
+            const h0Symbol = document.getElementById('t1-h0-symbol').value;
+
+            if (data.length < 2) return displayError(id, "Please enter at least two data points.");
+            if (isNaN(mu0)) return displayError(id, "Please enter a valid Hypothesized Mean.");
+
+            const n = data.length, xBar = mean(data), s = stdev(data), df = n - 1;
+            if (s === 0) return displayError(id, "Standard deviation is zero. Cannot perform t-test.");
+
+            const tStat = (xBar - mu0) / (s / Math.sqrt(n));
+            const tCrit = getTCritical(df, haSymbol);
+            
+            const { decision, criticalLine, tailTypeDisplay } = getDecision(tStat, tCrit, haSymbol, 't');
+            const graphSVG = drawTDistribution(tStat, tCrit, haSymbol, df);
+            
+            const results = formatResults({
+                title: "One-Sample t-test Results",
+                h0: `$\\mu ${h0Symbol.includes('>=') ? '\\ge' : h0Symbol.includes('<=') ? '\\le' : '='} ${mu0}$`,
+                h1: `$\\mu ${haSymbol === '!=' ? '\\neq' : haSymbol} ${mu0}$`,
+                tailType: tailTypeDisplay,
+                stats: [
+                    { label: "Sample Mean ($\\bar{x}$)", value: xBar.toFixed(4) },
+                    { label: "Sample StDev ($s$)", value: s.toFixed(4) },
+                    { label: "Sample Size ($n$)", value: n }
+                ],
+                testStatLabel: "Test Statistic",
+                testStat: `$t = ${tStat.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "Degrees of Freedom ($df$)", value: df },
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" },
+                    { label: `Critical Value(s)`, value: criticalLine }
+                ],
+                graph: graphSVG,
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+
+        // 2. One-Sample Z-Test
+        function calculateOneSampleZ() {
+            const id = 'one-sample-z-results';
+            const data = parseData(document.getElementById('z1-data').value);
+            const mu0 = Number(document.getElementById('z1-hypothesized-mean').value);
+            const sigma = Number(document.getElementById('z1-pop-sd').value);
+            const haSymbol = document.getElementById('z1-ha-symbol').value;
+            const h0Symbol = document.getElementById('z1-h0-symbol').value;
+            
+            if (data.length < 1) return displayError(id, "Please enter at least one data point.");
+            if (isNaN(mu0)) return displayError(id, "Please enter a valid Hypothesized Mean.");
+            if (isNaN(sigma) || sigma <= 0) return displayError(id, "Please enter a valid Population SD ($\sigma > 0$).");
+
+            const n = data.length, xBar = mean(data);
+            const zStat = (xBar - mu0) / (sigma / Math.sqrt(n));
+            const zCrit = getZCritical(haSymbol);
+            
+            const { decision, criticalLine, tailTypeDisplay } = getDecision(zStat, zCrit, haSymbol, 'z');
+            const graphSVG = drawNormalDistribution(zStat, zCrit, haSymbol);
+
+            const results = formatResults({
+                title: "One-Sample Z-test Results",
+                h0: `$\\mu ${h0Symbol.includes('>=') ? '\\ge' : h0Symbol.includes('<=') ? '\\le' : '='} ${mu0}$`,
+                h1: `$\\mu ${haSymbol === '!=' ? '\\neq' : haSymbol} ${mu0}$`,
+                tailType: tailTypeDisplay,
+                stats: [
+                    { label: "Sample Mean ($\\bar{x}$)", value: xBar.toFixed(4) },
+                    { label: "Population SD ($\\sigma$)", value: sigma },
+                    { label: "Sample Size ($n$)", value: n }
+                ],
+                testStatLabel: "Test Statistic",
+                testStat: `$z = ${zStat.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" },
+                    { label: `Critical Value(s)`, value: criticalLine }
+                ],
+                graph: graphSVG,
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+        
+        // 3. One-Sample Proportion Test
+        function calculateOneSampleProportion() {
+            const id = 'one-sample-proportion-results';
+            const x = Number(document.getElementById('p1-successes').value);
+            const n = Number(document.getElementById('p1-n').value);
+            const p0 = Number(document.getElementById('p1-hypothesized-p').value);
+            const haSymbol = document.getElementById('p1-ha-symbol').value;
+            const h0Symbol = document.getElementById('p1-h0-symbol').value;
+
+            if (isNaN(x) || x < 0) return displayError(id, "Invalid successes ($x$).");
+            if (isNaN(n) || n <= 0) return displayError(id, "Invalid sample size ($n$).");
+            if (x > n) return displayError(id, "Successes ($x$) cannot be greater than sample size ($n$).");
+            if (isNaN(p0) || p0 <= 0 || p0 >= 1) return displayError(id, "Hypothesized proportion ($p_0$) must be between 0 and 1.");
+            
+            // Check assumptions
+            if (n * p0 < 10 || n * (1 - p0) < 10) {
+                displayError(id, `Warning: Assumptions for Z-test not met ($np_0 < 10$ or $n(1-p_0) < 10$). Results may be inaccurate.
+                <br>$np_0 = ${n*p0}$ | $n(1-p_0) = ${n*(1-p0)}$`);
+                // Don't return, let user see results anyway but with warning.
+            }
+
+            const p_hat = x / n;
+            const zStat = (p_hat - p0) / Math.sqrt(p0 * (1 - p0) / n);
+            const zCrit = getZCritical(haSymbol);
+            
+            const { decision, criticalLine, tailTypeDisplay } = getDecision(zStat, zCrit, haSymbol, 'z');
+            const graphSVG = drawNormalDistribution(zStat, zCrit, haSymbol);
+
+             const results = formatResults({
+                title: "One-Sample Proportion Z-Test Results",
+                h0: `$p ${h0Symbol.includes('>=') ? '\\ge' : h0Symbol.includes('<=') ? '\\le' : '='} ${p0}$`,
+                h1: `$p ${haSymbol === '!=' ? '\\neq' : haSymbol} ${p0}$`,
+                tailType: tailTypeDisplay,
+                stats: [
+                    { label: "Sample Proportion ($\\hat{p}$)", value: `${p_hat.toFixed(4)} (${x}/${n})`},
+                    { label: "Sample Size ($n$)", value: n }
+                ],
+                testStatLabel: "Test Statistic",
+                testStat: `$z = ${zStat.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" },
+                    { label: `Critical Value(s)`, value: criticalLine }
+                ],
+                graph: graphSVG,
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+        
+        // 4. Sign Test
+        function calculateSignTest() {
+            const id = 'sign-test-results';
+            const data = parseData(document.getElementById('sign-data').value);
+            const median0 = Number(document.getElementById('sign-hypothesized-median').value);
+            const haSymbol = document.getElementById('sign-ha-symbol').value;
+            const h0Symbol = document.getElementById('sign-h0-symbol').value;
+
+            if (data.length < 1) return displayError(id, "Please enter at least one data point.");
+            if (isNaN(median0)) return displayError(id, "Please enter a valid Hypothesized Median.");
+
+            const diffs = data.map(x => x - median0);
+            
+            // jStat.signtest(array, median, alternative)
+            // 'alternative' can be 'two-sided' (default), 'less', or 'greater'
+            let alt = 'two-sided';
+            if (haSymbol === '<') alt = 'less';
+            if (haSymbol === '>') alt = 'greater';
+            
+            const pValue = jStat.signtest(data, median0, alt);
+            let decision = '';
+            if (pValue < 0.05) {
+                decision = `<span class="text-red-600 font-bold">Reject $H_0$</span> ($p < 0.05$)`;
+            } else {
+                decision = `<span class="text-green-600 font-bold">Fail to Reject $H_0$</span> ($p \ge 0.05$)`;
+            }
+            
+             const results = formatResults({
+                title: "Sign Test Results",
+                h0: `${h0Symbol.replace('H₀: ', '')}`,
+                h1: `Median ${haSymbol} ${median0}$`,
+                tailType: alt === 'two-sided' ? 'Two-Tailed' : alt === 'less' ? 'Left-Tailed' : 'Right-Tailed',
+                stats: [
+                    { label: "Values above Median₀", value: diffs.filter(d => d > 0).length },
+                    { label: "Values below Median₀", value: diffs.filter(d => d < 0).length },
+                    { label: "Values equal to Median₀", value: diffs.filter(d => d === 0).length },
+                ],
+                testStatLabel: "p-value",
+                testStat: `$p = ${pValue.toFixed(6)}$`,
+                decisionCriteria: [
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" }
+                ],
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+
+        // 5. Two-Sample t-Test
+        function calculateTwoSampleT() {
+            const id = 'two-sample-t-results';
+            const data1 = parseData(document.getElementById('t2-sample1-data').value);
+            const data2 = parseData(document.getElementById('t2-sample2-data').value);
+            const haSymbol = document.getElementById('t2-ha-symbol').value;
+            const h0Symbol = document.getElementById('t2-h0-symbol').value;
+            
+            if (data1.length < 2 || data2.length < 2) return displayError(id, "Please enter at least two data points for *both* samples.");
+
+            const n1 = data1.length, xBar1 = mean(data1), s1Sq = variance(data1);
+            const n2 = data2.length, xBar2 = mean(data2), s2Sq = variance(data2);
+            
+            // Welch's T-Test (unequal variance)
+            const tNumerator = xBar1 - xBar2;
+            const tDenominator = Math.sqrt((s1Sq / n1) + (s2Sq / n2));
+            if (tDenominator === 0) return displayError(id, "Variances are zero. Cannot perform t-test.");
+            const tStat = tNumerator / tDenominator;
+
+            // Welch-Satterthwaite DF
+            const dfNum = (s1Sq / n1 + s2Sq / n2) ** 2;
+            const dfDen = ((s1Sq / n1) ** 2 / (n1 - 1)) + ((s2Sq / n2) ** 2 / (n2 - 1));
+            if (dfDen === 0) return displayError(id, "Cannot calculate degrees of freedom (division by zero).");
+            const df = dfNum / dfDen;
+
+            const tCrit = getTCritical(df, haSymbol);
+            
+            const { decision, criticalLine, tailTypeDisplay } = getDecision(tStat, tCrit, haSymbol, 't');
+            const graphSVG = drawTDistribution(tStat, tCrit, haSymbol, df);
+            
+             const results = formatResults({
+                title: "Independent Two-Sample t-Test Results",
+                h0: `$\\mu_1 ${h0Symbol.includes('>=') ? '\\ge' : h0Symbol.includes('<=') ? '\\le' : '='} \\mu_2$`,
+                h1: `$\\mu_1 ${haSymbol === '!=' ? '\\neq' : haSymbol} \\mu_2$`,
+                tailType: tailTypeDisplay,
+                stats: [
+                    { label: "Sample 1 Mean ($\\bar{x}_1$)", value: `${xBar1.toFixed(4)} ($n_1=${n1})$` },
+                    { label: "Sample 2 Mean ($\\bar{x}_2$)", value: `${xBar2.toFixed(4)} ($n_2=${n2})$` }
+                ],
+                testStatLabel: "Test Statistic",
+                testStat: `$t = ${tStat.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "Degrees of Freedom ($df$)", value: df.toFixed(4) },
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" },
+                    { label: `Critical Value(s)`, value: criticalLine }
+                ],
+                graph: graphSVG,
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+        
+        // 6. Two-Sample Z-Test
+        function calculateTwoSampleZ() {
+            const id = 'two-sample-z-results';
+            const data1 = parseData(document.getElementById('z2-sample1-data').value);
+            const data2 = parseData(document.getElementById('z2-sample2-data').value);
+            const sigma1 = Number(document.getElementById('z2-pop-sd1').value);
+            const sigma2 = Number(document.getElementById('z2-pop-sd2').value);
+            const haSymbol = document.getElementById('z2-ha-symbol').value;
+            const h0Symbol = document.getElementById('z2-h0-symbol').value;
+            
+            if (data1.length < 1 || data2.length < 1) return displayError(id, "Please enter at least one data point for *both* samples.");
+            if (isNaN(sigma1) || sigma1 <= 0) return displayError(id, "Invalid $\sigma_1 > 0$.");
+            if (isNaN(sigma2) || sigma2 <= 0) return displayError(id, "Invalid $\sigma_2 > 0$.");
+
+            const n1 = data1.length, xBar1 = mean(data1);
+            const n2 = data2.length, xBar2 = mean(data2);
+            
+            const zNumerator = (xBar1 - xBar2);
+            const zDenominator = Math.sqrt((sigma1**2 / n1) + (sigma2**2 / n2));
+            const zStat = zNumerator / zDenominator;
+            const zCrit = getZCritical(haSymbol);
+            
+            const { decision, criticalLine, tailTypeDisplay } = getDecision(zStat, zCrit, haSymbol, 'z');
+            const graphSVG = drawNormalDistribution(zStat, zCrit, haSymbol);
+
+             const results = formatResults({
+                title: "Independent Two-Sample Z-Test Results",
+                h0: `$\\mu_1 ${h0Symbol.includes('>=') ? '\\ge' : h0Symbol.includes('<=') ? '\\le' : '='} \\mu_2$`,
+                h1: `$\\mu_1 ${haSymbol === '!=' ? '\\neq' : haSymbol} \\mu_2$`,
+                tailType: tailTypeDisplay,
+                stats: [
+                    { label: "Sample 1 Mean ($\\bar{x}_1$)", value: `${xBar1.toFixed(4)} ($n_1=${n1})$` },
+                    { label: "Sample 2 Mean ($\\bar{x}_2$)", value: `${xBar2.toFixed(4)} ($n_2=${n2})$` },
+                    { label: "Pop SD 1 ($\\sigma_1$)", value: sigma1 },
+                    { label: "Pop SD 2 ($\\sigma_2$)", value: sigma2 }
+                ],
+                testStatLabel: "Test Statistic",
+                testStat: `$z = ${zStat.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" },
+                    { label: `Critical Value(s)`, value: criticalLine }
+                ],
+                graph: graphSVG,
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+        
+        // 7. Paired t-Test
+        function calculatePairedT() {
+            const id = 'paired-t-results';
+            const data1 = parseData(document.getElementById('tp-sample1-data').value);
+            const data2 = parseData(document.getElementById('tp-sample2-data').value);
+            const haSymbol = document.getElementById('tp-ha-symbol').value;
+            const h0Symbol = document.getElementById('tp-h0-symbol').value;
+            
+            if (data1.length !== data2.length || data1.length < 2) {
+                return displayError(id, `Samples must have equal length and at least 2 pairs. (Sample 1 has ${data1.length}, Sample 2 has ${data2.length})`);
+            }
+            
+            const differences = data1.map((val, i) => val - data2[i]);
+            
+            // Now, it's just a One-Sample t-Test on the differences with mu0 = 0
+            const n = differences.length;
+            const dBar = mean(differences);
+            const s_d = stdev(differences);
+            const df = n - 1;
+            
+            if (s_d === 0) return displayError(id, "Standard deviation of differences is zero. Cannot perform t-test.");
+            
+            const tStat = (dBar - 0) / (s_d / Math.sqrt(n));
+            const tCrit = getTCritical(df, haSymbol);
+            
+            const { decision, criticalLine, tailTypeDisplay } = getDecision(tStat, tCrit, haSymbol, 't');
+            const graphSVG = drawTDistribution(tStat, tCrit, haSymbol, df);
+            
+            const results = formatResults({
+                title: "Paired Sample t-Test Results",
+                h0: `$\\mu_{\\text{diff}} ${h0Symbol.includes('>=') ? '\\ge' : h0Symbol.includes('<=') ? '\\le' : '='} 0$`,
+                h1: `$\\mu_{\\text{diff}} ${haSymbol === '!=' ? '\\neq' : haSymbol} 0$`,
+                tailType: tailTypeDisplay,
+                stats: [
+                    { label: "Mean of Differences ($\\bar{d}$)", value: dBar.toFixed(4) },
+                    { label: "StDev of Differences ($s_d$)", value: s_d.toFixed(4) },
+                    { label: "Number of Pairs ($n$)", value: n }
+                ],
+                testStatLabel: "Test Statistic",
+                testStat: `$t = ${tStat.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "Degrees of Freedom ($df$)", value: df },
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" },
+                    { label: `Critical Value(s)`, value: criticalLine }
+                ],
+                graph: graphSVG,
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+
+        // 8. Two-Sample Proportion Test
+        function calculateTwoSampleProportion() {
+            const id = 'two-sample-proportion-results';
+            const x1 = Number(document.getElementById('p2-successes1').value);
+            const n1 = Number(document.getElementById('p2-n1').value);
+            const x2 = Number(document.getElementById('p2-successes2').value);
+            const n2 = Number(document.getElementById('p2-n2').value);
+            const haSymbol = document.getElementById('p2-ha-symbol').value;
+            const h0Symbol = document.getElementById('p2-h0-symbol').value;
+
+            if (isNaN(x1) || x1 < 0 || isNaN(n1) || n1 <= 0 || x1 > n1) return displayError(id, "Invalid Sample 1 inputs.");
+            if (isNaN(x2) || x2 < 0 || isNaN(n2) || n2 <= 0 || x2 > n2) return displayError(id, "Invalid Sample 2 inputs.");
+
+            const p_hat1 = x1 / n1;
+            const p_hat2 = x2 / n2;
+            const p_pool = (x1 + x2) / (n1 + n2);
+            
+            const zNumerator = p_hat1 - p_hat2;
+            const zDenominator = Math.sqrt(p_pool * (1 - p_pool) * (1/n1 + 1/n2));
+            if (zDenominator === 0) return displayError(id, "Pooled variance is zero. Cannot perform test.");
+            
+            const zStat = zNumerator / zDenominator;
+            const zCrit = getZCritical(haSymbol);
+            
+            const { decision, criticalLine, tailTypeDisplay } = getDecision(zStat, zCrit, haSymbol, 'z');
+            const graphSVG = drawNormalDistribution(zStat, zCrit, haSymbol);
+
+             const results = formatResults({
+                title: "Independent Two-Sample Proportion Z-Test Results",
+                h0: `$p_1 ${h0Symbol.includes('>=') ? '\\ge' : h0Symbol.includes('<=') ? '\\le' : '='} p_2$`,
+                h1: `$p_1 ${haSymbol === '!=' ? '\\neq' : haSymbol} p_2$`,
+                tailType: tailTypeDisplay,
+                stats: [
+                    { label: "Sample 1 Prop. ($\\hat{p}_1$)", value: `${p_hat1.toFixed(4)} (${x1}/${n1})$` },
+                    { label: "Sample 2 Prop. ($\\hat{p}_2$)", value: `${p_hat2.toFixed(4)} (${x2}/${n2})$` },
+                    { label: "Pooled Prop. ($\\hat{p}_{pool}$)", value: p_pool.toFixed(4) }
+                ],
+                testStatLabel: "Test Statistic",
+                testStat: `$z = ${zStat.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" },
+                    { label: `Critical Value(s)`, value: criticalLine }
+                ],
+                graph: graphSVG,
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+        
+        // 9. Mann-Whitney U Test
+        function calculateMannWhitney() {
+            const id = 'mann-whitney-results';
+            const data1 = parseData(document.getElementById('mw-sample1-data').value);
+            const data2 = parseData(document.getElementById('mw-sample2-data').value);
+            const haSymbol = document.getElementById('mw-ha-symbol').value;
+            const h0Symbol = document.getElementById('mw-h0-symbol').value;
+
+            if (data1.length < 1 || data2.length < 1) return displayError(id, "Please enter data for both samples.");
+
+            // 1. Calculate U statistic manually
+            const { U, R1, R2, n1, n2 } = calculateUStatistic(data1, data2);
+
+            let alt = 'two-sided';
+            if (haSymbol === '<') alt = 'less';
+            if (haSymbol === '>') alt = 'greater';
+
+            // 2. Compute p-value using normal approximation (for non-small samples)
+            function mannWhitneyPValue(U, n1, n2, alternative = 'two-sided') {
+                const mu = n1 * n2 / 2;
+                // Calculate variance with tie correction, if necessary. For simplicity, we use the standard formula.
+                const sigma = Math.sqrt(n1 * n2 * (n1 + n2 + 1) / 12);
+                
+                // Continuity correction (0.5 adjustment in the numerator)
+                let z;
+                
+                if (U > mu) {
+                    z = (U - mu - 0.5) / sigma;
+                } else if (U < mu) {
+                    z = (U - mu + 0.5) / sigma;
+                } else {
+                    z = 0;
+                }
+                
+                if (alternative === 'two-sided') {
+                    // Two-tailed test uses the area outside +/-|Z|
+                    return 2 * (1 - jStat.normal.cdf(Math.abs(z), 0, 1));
+                } else if (alternative === 'less') {
+                    // Left-tailed test
+                    return jStat.normal.cdf(z, 0, 1);
+                } else { // 'greater'
+                    // Right-tailed test
+                    return 1 - jStat.normal.cdf(z, 0, 1);
+                }
+            }
+
+            const p = mannWhitneyPValue(U, n1, n2, alt);
+
+            let decision = '';
+            if (p < 0.05) {
+                decision = `<span class="text-red-600 font-bold">Reject $H_0$</span> ($p < 0.05$)`;
+            } else {
+                decision = `<span class="text-green-600 font-bold">Fail to Reject $H_0$</span> ($p \ge 0.05$)`;
+            }
+
+            const results = formatResults({
+                title: "Mann-Whitney U Test Results (Normal Approximation)",
+                h0: `${h0Symbol.replace('H₀: ', '')}`,
+                h1: `Distributions are ${haSymbol === '!=' ? 'not equal' : haSymbol === '<' ? 'shifted left' : 'shifted right'}`,
+                tailType: alt,
+                stats: [
+                    { label: "Sample 1 Size ($n_1$)", value: n1 },
+                    { label: "Sample 2 Size ($n_2$)", value: n2 },
+                    { label: "Rank Sum $R_1$", value: R1.toFixed(2) },
+                    { label: "Rank Sum $R_2$", value: R2.toFixed(2) },
+                ],
+                testStatLabel: "Test Statistic (U)",
+                testStat: `$U = ${U.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "p-value (Approx.)", value: `$${p.toFixed(6)}$` },
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" }
+                ],
+                conclusion: decision
+            });
+
+            displayResult(id, results);
+        }
+
+        
+        // 10. Wilcoxon Signed-Rank Test (Paired)
+        function calculateWilcoxonPaired() {
+            const id = 'wilcoxon-paired-results';
+            const data1 = parseData(document.getElementById('wp-sample1-data').value);
+            const data2 = parseData(document.getElementById('wp-sample2-data').value);
+            const haSymbol = document.getElementById('wp-ha-symbol').value;
+            const h0Symbol = document.getElementById('wp-h0-symbol').value;
+            
+            if (data1.length !== data2.length || data1.length < 1) {
+                return displayError(id, `Samples must have equal length. (Sample 1 has ${data1.length}, Sample 2 has ${data2.length})`);
+            }
+            
+            // Calculate differences for the Wilcoxon test
+            const differences = data1.map((val, i) => val - data2[i]);
+            
+            let alt = 'two-sided';
+            if (haSymbol === '<') alt = 'less';
+            if (haSymbol === '>') alt = 'greater';
+
+            // Correct jStat function for Wilcoxon Signed-Rank
+            const { T, p } = jStat.wilcoxonsignedrank(differences, 0, alt);
+            
+            let decision = '';
+            if (p < 0.05) {
+                decision = `<span class="text-red-600 font-bold">Reject $H_0$</span> ($p < 0.05$)`;
+            } else {
+                decision = `<span class="text-green-600 font-bold">Fail to Reject $H_0$</span> ($p \ge 0.05$)`;
+            }
+
+             const results = formatResults({
+                title: "Wilcoxon Signed-Rank Test Results",
+                h0: `${h0Symbol.replace('H₀: ', '')}`,
+                h1: `Distributions are ${haSymbol === '!=' ? 'not equal' : haSymbol === '<' ? 'shifted left' : 'shifted right'}`,
+                tailType: alt,
+                stats: [
+                    { label: "Number of Pairs ($n$)", value: data1.length },
+                    { label: "Mean Difference", value: mean(differences).toFixed(4) }
+                ],
+                testStatLabel: "Test Statistic (T)",
+                testStat: `$T = ${T.toFixed(4)}$`,
+                decisionCriteria: [
+                    { label: "p-value", value: `$${p.toFixed(6)}$` },
+                    { label: "Significance Level ($\\alpha$)", value: "0.05" }
+                ],
+                conclusion: decision
+            });
+            displayResult(id, results);
+        }
+
+        // --- Decision & Formatting Helpers ---
+        
+        function getDecision(stat, crit, tailType, statSymbol) {
+            const statAbs = Math.abs(stat);
+            const critAbs = Math.abs(crit);
+            let decision = '', isReject = false, criticalLine = '', tailTypeDisplay = '';
+
+            if (tailType === '!=') {
+                if (statAbs > critAbs) isReject = true;
+                criticalLine = `$\\pm ${crit.toFixed(4)}$`;
+                tailTypeDisplay = 'Two-Tailed';
+            } else if (tailType === '<') {
+                if (stat < -critAbs) isReject = true;
+                criticalLine = `$${(-critAbs).toFixed(4)}$`;
+                tailTypeDisplay = 'Left-Tailed';
+            } else if (tailType === '>') {
+                if (stat > critAbs) isReject = true;
+                criticalLine = `$${critAbs.toFixed(4)}$`;
+                tailTypeDisplay = 'Right-Tailed';
+            }
+
+            if (isReject) {
+                decision = `<span class="text-red-600 font-bold">Reject $H_0$</span> (${statSymbol}-statistic falls in the rejection zone)`;
+            } else {
+                decision = `<span class="text-green-600 font-bold">Fail to Reject $H_0$</span> (${statSymbol}-statistic is NOT in the rejection zone)`;
+            }
+            return { decision, criticalLine, tailTypeDisplay };
+        }
+        
+        function formatResults(res) {
+            return `
+                <p class="font-bold text-indigo-700">${res.title}</p>
+                <div class="mt-2 p-3 border border-indigo-300 rounded-lg bg-indigo-100">
+                    <p class="font-semibold">Hypotheses:</p>
+                    <p>$H_0$: ${res.h0} | $H_1$: ${res.h1} (${res.tailType})</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                    <div class="p-3 border border-gray-300 rounded-lg bg-gray-50 md:col-span-1">
+                        <p class="font-semibold text-gray-800 mb-1">Sample Statistics</p>
+                        <ul class="list-none space-y-0.5 text-sm">
+                            ${res.stats.map(s => `<li><span class="font-medium">${s.label}:</span> ${s.value}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="p-3 border border-gray-300 rounded-lg bg-gray-50 md:col-span-1">
+                        <p class="font-semibold text-gray-800 mb-1">${res.testStatLabel}</p>
+                        <p class="text-xl font-bold text-primary">${res.testStat}</p>
+                    </div>
+                    <div class="p-3 border border-gray-300 rounded-lg bg-gray-50 md:col-span-1">
+                        <p class="font-semibold text-gray-800 mb-1">Decision Criteria</p>
+                        <ul class="list-none space-y-0.5 text-sm">
+                            ${res.decisionCriteria.map(s => `<li><span class="font-medium">${s.label}:</span> ${s.value}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+                
+                ${res.graph ? `
+                <div class="distribution-graph mt-4 p-3 border-4 border-indigo-300">
+                    <p class="text-center font-semibold mb-2 text-gray-700">Distribution Visualization ($\\alpha = 0.05$)</p>
+                    ${res.graph}
+                </div>` : ''}
+
+                <p class="mt-3 font-bold">Hypothesis Conclusion:</p>
+                <p>${res.conclusion}</p>
+            `;
+        }
+        
+    </script>
+</body>
+</html>
